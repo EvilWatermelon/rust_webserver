@@ -1,16 +1,25 @@
 use std::{
 	fs,
+	io,
     io::{prelude::*, BufReader},
     net::{TcpListener, TcpStream},
 };
 
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:8080").unwrap();
+	listener.set_nonblocking(true).expect("Cannot set non-blocking");
 
 	for stream in listener.incoming() {
-		let stream = stream.unwrap();
-
-		handle_connection(stream);
+		match stream {
+			Ok(s) => {
+				handle_connection(s);
+			}
+			Err(ref e) if(e.kind() == io::ErrorKind::WouldBlock) => {
+				continue;
+			}
+			Err(e) => panic!("Encountered IO error: {}", e),
+		}	
+		
 	}
 }
 
@@ -22,7 +31,7 @@ fn handle_connection(mut stream: TcpStream) {
 		("HTTP/1.1 200 OK", "hello.html")
 	} else {
 		("HTTP/1.1 404 NOT FOUND", "404.html")
-	}
+	};
 	
 	let contents = fs::read_to_string(filename).unwrap();
 	let length = contents.len();
